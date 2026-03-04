@@ -4,17 +4,22 @@ Ferramenta web para criar modelos 3D de chaveiros personalizáveis com slot para
 
 ![Criador de Chaveiro 3D](https://img.shields.io/badge/Three.js-3D-orange) ![License](https://img.shields.io/badge/license-MIT-blue)
 
+## Base do modelo 3D
+
+O projeto usa o arquivo **`Digital_keychain_plain_any.stl`** como base do chaveiro. Coloque esse arquivo na raiz do projeto (mesma pasta do `index.html`). Se o arquivo não for encontrado, o sistema usa geometria procedural como fallback.
+
 ## Como usar
 
 1. Clone o repositório ou baixe os arquivos
-2. Abra `index.html` em um navegador ou use um servidor local:
+2. Coloque `Digital_keychain_plain_any.stl` na raiz do projeto (opcional)
+3. Abra `index.html` em um navegador ou use um servidor local:
    ```bash
    npx serve
    ```
 3. Acesse http://localhost:3000
 4. Faça upload de um logo em SVG (campo "Logo Principal")
 5. Opcionalmente adicione um logo na parte inferior
-6. Ajuste cores, tamanho e forma conforme preferir
+6. Ajuste cores e tamanho conforme preferir
 7. Clique em "Exportar STL para Impressora 3D"
 
 ## Características
@@ -22,7 +27,7 @@ Ferramenta web para criar modelos 3D de chaveiros personalizáveis com slot para
 - **Slot NFC**: Rebaixo de 25x25mm para acomodar adesivo NFC (pause a impressão para inserir)
 - **Borda elevada**: Compatível com cobertura de resina
 - **Ring role na parte superior**: Aba com furo para anel, posicionada no topo
-- **Forma ajustável**: De quadrado (0%) a redondo (100%)
+- **Forma circular**: Chaveiro com borda redonda
 - **Logo SVG**: Suporta qualquer SVG com elementos `<path>`
 - **Tema claro/escuro**: Alternância entre temas
 - **Exportação STL**: Pronto para Cura, PrusaSlicer e outros slicers

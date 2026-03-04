@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+
+const BASE_STL_PATH = 'Digital_keychain_plain_any.stl';
 
 // Configuração base (1 unidade = 1mm para impressão 3D)
 const NFC_SLOT_WIDTH = 25;
@@ -24,14 +27,15 @@ class KeychainCreator {
     this.keychainGroup = new THREE.Group();
     this.logoMesh = null;
     this.logoBottomMesh = null;
+    this.baseStlGeometry = null;
+    this.useStlBase = false;
 
     this.params = {
       diameter: 50,
       thickness: 5,
       rounding: 100,
-      colorBase: 0x2d5a27,
-      colorLogo: 0xffffff,
-      colorBorder: 0x1a3d17,
+      colorBase: 0xffffff,
+      colorLogo: 0x000000,
       logoDepth: 0.8,
       logoSvg: null,
       logoBottomSvg: null,
@@ -40,11 +44,12 @@ class KeychainCreator {
     this.init();
   }
 
-  init() {
+  async init() {
     this.setupRenderer();
     this.setupLights();
     this.setupControls();
     this.bindUI();
+    await this.loadBaseStl();
     this.buildKeychain();
     this.animate();
     window.addEventListener('load', () => {
@@ -97,33 +102,77 @@ class KeychainCreator {
     this.controls.maxDistance = 200;
   }
 
+  async loadBaseStl() {
+    try {
+      const loader = new STLLoader();
+      const geometry = await loader.loadAsync(BASE_STL_PATH);
+      geometry.computeVertexNormals();
+      geometry.computeBoundingBox();
+      this.baseStlGeometry = geometry;
+      this.useStlBase = true;
+      console.log('Base STL carregada:', BASE_STL_PATH);
+    } catch (err) {
+      console.warn('Base STL não encontrada, usando geometria procedural:', err.message);
+      this.baseStlGeometry = null;
+      this.useStlBase = false;
+    }
+  }
+
   buildKeychain() {
     this.scene.remove(this.keychainGroup);
     this.keychainGroup = new THREE.Group();
 
     const radius = this.params.diameter / 2;
-    const baseGeometry = this.createBaseGeometry(radius);
-    const slotGeometry = this.createNFCSlotRecess(radius);
-    const borderGeometry = this.createBorderGeometry(radius);
 
-    const tabGeometry = this.createKeyringTab(radius);
-    const mergedBody = BufferGeometryUtils.mergeGeometries([
-      baseGeometry,
-      slotGeometry,
-      borderGeometry,
-      ...(tabGeometry ? [tabGeometry] : []),
-    ]);
-    if (mergedBody) {
-      mergedBody.computeVertexNormals();
+    if (this.useStlBase && this.baseStlGeometry) {
+      const geom = this.baseStlGeometry.clone();
+      geom.computeBoundingBox();
+      const box = geom.boundingBox;
+      const center = new THREE.Vector3();
+      const size = new THREE.Vector3();
+      box.getCenter(center);
+      box.getSize(size);
+      geom.translate(-center.x, -center.y, -center.z);
+      const maxDim = Math.max(size.x, size.y, 0.001);
+      const scale = (radius * 2) / maxDim;
+      geom.scale(scale, scale, scale);
+      geom.computeBoundingBox();
+      this.params.effectiveThickness = geom.boundingBox.max.z - geom.boundingBox.min.z;
+      geom.computeVertexNormals();
+
       const bodyMaterial = new THREE.MeshPhongMaterial({
         color: this.params.colorBase,
         shininess: 35,
         specular: 0x333333,
       });
-      const bodyMesh = new THREE.Mesh(mergedBody, bodyMaterial);
+      const bodyMesh = new THREE.Mesh(geom, bodyMaterial);
       bodyMesh.castShadow = true;
       bodyMesh.receiveShadow = true;
       this.keychainGroup.add(bodyMesh);
+    } else {
+      this.params.effectiveThickness = this.params.thickness;
+      const baseGeometry = this.createBaseGeometry(radius);
+      const slotGeometry = this.createNFCSlotRecess(radius);
+      const borderGeometry = this.createBorderGeometry(radius);
+      const tabGeometry = this.createKeyringTab(radius);
+      const mergedBody = BufferGeometryUtils.mergeGeometries([
+        baseGeometry,
+        slotGeometry,
+        borderGeometry,
+        ...(tabGeometry ? [tabGeometry] : []),
+      ]);
+      if (mergedBody) {
+        mergedBody.computeVertexNormals();
+        const bodyMaterial = new THREE.MeshPhongMaterial({
+          color: this.params.colorBase,
+          shininess: 35,
+          specular: 0x333333,
+        });
+        const bodyMesh = new THREE.Mesh(mergedBody, bodyMaterial);
+        bodyMesh.castShadow = true;
+        bodyMesh.receiveShadow = true;
+        this.keychainGroup.add(bodyMesh);
+      }
     }
 
     if (this.params.logoSvg) {
@@ -321,7 +370,9 @@ class KeychainCreator {
       group.scale.set(scale, -scale, 1);
       group.position.set(0, 0, 0);
 
-      const topSurfaceZ = this.params.thickness + this.params.logoDepth / 2 + 0.1;
+      const thickness = this.params.effectiveThickness ?? this.params.thickness;
+      const topSurfaceZ = (this.useStlBase ? thickness / 2 : thickness) + this.params.logoDepth / 2 + 0.1;
+      const bottomSurfaceZ = (this.useStlBase ? -thickness / 2 : 0) - this.params.logoDepth / 2 - 0.1;
       if (isTop) {
         if (this.logoMesh) this.keychainGroup.remove(this.logoMesh);
         group.position.z = topSurfaceZ;
@@ -329,7 +380,7 @@ class KeychainCreator {
         this.keychainGroup.add(group);
       } else {
         if (this.logoBottomMesh) this.keychainGroup.remove(this.logoBottomMesh);
-        group.position.z = -this.params.logoDepth / 2 - 0.1;
+        group.position.z = bottomSurfaceZ;
         group.rotation.x = Math.PI;
         this.logoBottomMesh = group;
         this.keychainGroup.add(group);
@@ -375,10 +426,9 @@ class KeychainCreator {
   syncParamsFromDOM() {
     this.params.diameter = parseInt(document.getElementById('size-slider').value);
     this.params.thickness = Math.max(5, Math.min(10, parseFloat(document.getElementById('thickness-input').value) || 5));
-    this.params.rounding = parseInt(document.getElementById('rounding-slider').value);
+    this.params.rounding = 100;
     this.params.colorBase = this.hexToThree(document.getElementById('color-base').value);
     this.params.colorLogo = this.hexToThree(document.getElementById('color-logo').value);
-    this.params.colorBorder = this.hexToThree(document.getElementById('color-border').value);
     this.params.logoDepth = parseFloat(document.getElementById('logo-depth').value);
   }
 
@@ -449,7 +499,6 @@ class KeychainCreator {
 
     document.getElementById('color-base').addEventListener('input', () => this.updateFromParams());
     document.getElementById('color-logo').addEventListener('input', () => this.updateFromParams());
-    document.getElementById('color-border').addEventListener('input', () => this.updateFromParams());
 
     document.getElementById('size-slider').addEventListener('input', (e) => {
       document.getElementById('size-value').textContent = e.target.value;
@@ -458,11 +507,6 @@ class KeychainCreator {
 
     document.getElementById('thickness-input').addEventListener('input', () => this.updateFromParams());
     document.getElementById('thickness-input').addEventListener('change', () => this.updateFromParams());
-
-    document.getElementById('rounding-slider').addEventListener('input', (e) => {
-      document.getElementById('rounding-value').textContent = e.target.value;
-      this.updateFromParams();
-    });
 
     document.getElementById('logo-depth').addEventListener('input', (e) => {
       document.getElementById('logo-depth-value').textContent = e.target.value;
