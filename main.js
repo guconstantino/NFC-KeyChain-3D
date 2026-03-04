@@ -137,7 +137,9 @@ class KeychainCreator {
       const scale = (radius * 2) / maxDim;
       geom.scale(scale, scale, scale);
       geom.computeBoundingBox();
-      this.params.effectiveThickness = geom.boundingBox.max.z - geom.boundingBox.min.z;
+      const stlHeight = geom.boundingBox.max.z - geom.boundingBox.min.z;
+      this.params.effectiveThickness = stlHeight;
+      geom.translate(0, 0, -geom.boundingBox.min.z);
       geom.computeVertexNormals();
 
       const bodyMaterial = new THREE.MeshPhongMaterial({
@@ -214,7 +216,7 @@ class KeychainCreator {
 
   createBaseGeometry(radius) {
     const innerRadius = radius - BORDER_HEIGHT;
-    const baseDepth = Math.max(1, this.params.thickness - NFC_SLOT_DEPTH - BORDER_HEIGHT);
+    const baseDepth = this.params.thickness / 2;
 
     const shape = this.createKeychainShape(innerRadius);
 
@@ -230,7 +232,8 @@ class KeychainCreator {
   createBorderGeometry(radius) {
     const outerRadius = radius;
     const innerRadius = radius - BORDER_HEIGHT;
-    const baseDepth = Math.max(1, this.params.thickness - NFC_SLOT_DEPTH - BORDER_HEIGHT);
+    const baseDepth = this.params.thickness / 2;
+    const borderHeight = Math.max(0.5, this.params.thickness / 2 - NFC_SLOT_DEPTH);
 
     const outerShape = this.createKeychainShape(outerRadius);
     const innerHole = this.createKeychainShape(innerRadius, true);
@@ -240,7 +243,7 @@ class KeychainCreator {
     outerShape.holes.push(holePath);
 
     const extrudeSettings = {
-      depth: BORDER_HEIGHT,
+      depth: borderHeight,
       bevelEnabled: false,
     };
     const geometry = new THREE.ExtrudeGeometry(outerShape, extrudeSettings);
@@ -251,7 +254,7 @@ class KeychainCreator {
 
   createNFCSlotRecess(radius) {
     const innerRadius = radius - BORDER_HEIGHT;
-    const baseDepth = Math.max(1, this.params.thickness - NFC_SLOT_DEPTH - BORDER_HEIGHT);
+    const baseDepth = this.params.thickness / 2;
     const maxSlotDim = Math.min(NFC_SLOT_WIDTH, innerRadius * 1.6);
     const nfcW = Math.min((NFC_SLOT_WIDTH - 2) / 2, maxSlotDim / 2 - 1);
     const nfcH = Math.min((NFC_SLOT_HEIGHT - 2) / 2, maxSlotDim / 2 - 1);
@@ -371,8 +374,8 @@ class KeychainCreator {
       group.position.set(0, 0, 0);
 
       const thickness = this.params.effectiveThickness ?? this.params.thickness;
-      const topSurfaceZ = (this.useStlBase ? thickness / 2 : thickness) + this.params.logoDepth / 2 + 0.1;
-      const bottomSurfaceZ = (this.useStlBase ? -thickness / 2 : 0) - this.params.logoDepth / 2 - 0.1;
+      const topSurfaceZ = thickness + this.params.logoDepth / 2 + 0.1;
+      const bottomSurfaceZ = -this.params.logoDepth / 2 - 0.1;
       if (isTop) {
         if (this.logoMesh) this.keychainGroup.remove(this.logoMesh);
         group.position.z = topSurfaceZ;
@@ -517,6 +520,10 @@ class KeychainCreator {
   }
 
   exportSTL() {
+    this.syncParamsFromDOM();
+    const totalHeight = this.params.effectiveThickness ?? this.params.thickness;
+    const pauseHeight = totalHeight / 2;
+
     const exporter = new STLExporter();
     const clone = this.keychainGroup.clone();
     clone.traverse((child) => {
@@ -524,6 +531,15 @@ class KeychainCreator {
         child.geometry = child.geometry.clone();
       }
     });
+    const box = new THREE.Box3().setFromObject(clone);
+    const minZ = box.min.z;
+    if (minZ < 0) {
+      clone.traverse((child) => {
+        if (child.isMesh && child.geometry) {
+          child.geometry.translate(0, 0, -minZ);
+        }
+      });
+    }
     const stlString = exporter.parse(clone, { binary: false });
     const blob = new Blob([stlString], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
@@ -532,6 +548,29 @@ class KeychainCreator {
     link.download = 'chaveiro-nfc.stl';
     link.click();
     URL.revokeObjectURL(url);
+
+    const pauseInstructions = `INSTRUÇÕES DE IMPRESSÃO - CHAVEIRO NFC
+========================================
+
+PAUSA OBRIGATÓRIA: Configure seu slicer para pausar em exatamente ${pauseHeight.toFixed(2)} mm de altura.
+
+• No Cura: Extensions > Post Processing > Add a script > Pause at height
+  - Pause at: ${pauseHeight.toFixed(2)} mm
+  
+• No PrusaSlicer: Printer settings > Custom G-code
+  - Ou use "Pause print" no layer correspondente a ${pauseHeight.toFixed(2)} mm
+
+Após a pausa: insira a etiqueta NFC no slot e retome a impressão.
+`;
+    const txtBlob = new Blob([pauseInstructions], { type: 'text/plain' });
+    const txtUrl = URL.createObjectURL(txtBlob);
+    const txtLink = document.createElement('a');
+    txtLink.href = txtUrl;
+    txtLink.download = 'chaveiro-nfc-instrucoes.txt';
+    txtLink.click();
+    URL.revokeObjectURL(txtUrl);
+
+    alert(`Exportação concluída!\n\nPause a impressão em exatamente ${pauseHeight.toFixed(2)} mm (50% da altura) para inserir a tag NFC.\n\nUm arquivo de instruções também foi baixado.`);
   }
 
   updateRendererTheme() {
