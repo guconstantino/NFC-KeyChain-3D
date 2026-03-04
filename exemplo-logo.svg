@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Logo exemplo - formas que funcionam com SVGLoader -->
+  <path d="M50 15 L85 50 L50 85 L15 50 Z" fill="currentColor"/>
+  <path d="M50 30 L70 50 L50 70 L30 50 Z" fill="none" stroke="currentColor" stroke-width="3"/>
+</svg>

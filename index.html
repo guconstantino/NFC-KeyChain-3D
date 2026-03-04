@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Criador de Chaveiro 3D - Personalizável com Slot NFC</title>
+  <script>
+    (function(){try{var t=localStorage.getItem('chaveiro-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}}());
+  </script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-content">
+        <div>
+          <h1>Criador de Chaveiro 3D</h1>
+          <p class="subtitle">Chaveiro circular personalizável com slot para etiqueta NFC e borda compatível com resina</p>
+        </div>
+        <div class="theme-toggle">
+          <label for="theme-select">Tema</label>
+          <select id="theme-select" title="Escolher tema claro ou escuro">
+            <option value="dark">Escuro</option>
+            <option value="light">Claro</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <aside class="controls">
+        <section class="control-section">
+          <h2>Logos</h2>
+          
+          <div class="upload-group">
+            <label for="logo-upload">Logo Principal (SVG)</label>
+            <input type="file" id="logo-upload" accept=".svg,image/svg+xml" />
+            <button type="button" id="clear-logo" class="btn-secondary">Remover logo</button>
+          </div>
+
+          <div class="upload-group">
+            <label for="logo-bottom-upload">Logo Inferior (SVG)</label>
+            <input type="file" id="logo-bottom-upload" accept=".svg,image/svg+xml" />
+            <button type="button" id="clear-logo-bottom" class="btn-secondary">Remover logo inferior</button>
+          </div>
+        </section>
+
+        <section class="control-section">
+          <h2>Cores</h2>
+          
+          <div class="color-group">
+            <label for="color-base">Cor da base</label>
+            <input type="color" id="color-base" value="#2d5a27" />
+          </div>
+
+          <div class="color-group">
+            <label for="color-logo">Cor do logo</label>
+            <input type="color" id="color-logo" value="#ffffff" />
+          </div>
+
+          <div class="color-group">
+            <label for="color-border">Cor da borda</label>
+            <input type="color" id="color-border" value="#1a3d17" />
+          </div>
+        </section>
+
+        <section class="control-section">
+          <h2>Chaveiro</h2>
+          
+          <div class="slider-group">
+            <label for="size-slider">Diâmetro: <span id="size-value">50</span>mm</label>
+            <input type="range" id="size-slider" min="20" max="80" value="50" />
+          </div>
+
+          <div class="input-group">
+            <label for="thickness-input">Espessura (mm)</label>
+            <input type="number" id="thickness-input" min="5" max="10" step="0.5" value="5" title="Mínimo 5mm para estrutura adequada" />
+          </div>
+
+          <div class="slider-group">
+            <label for="rounding-slider">Forma: <span id="rounding-value">100</span>% (0% quadrado — 100% redondo)</label>
+            <input type="range" id="rounding-slider" min="0" max="100" value="100" />
+          </div>
+
+          <div class="slider-group">
+            <label for="logo-depth">Profundidade do logo: <span id="logo-depth-value">0.8</span>mm</label>
+            <input type="range" id="logo-depth" min="0.3" max="2" step="0.1" value="0.8" />
+          </div>
+        </section>
+
+        <section class="control-section">
+          <h2>Exportar</h2>
+          <button type="button" id="export-stl" class="btn-primary">
+            Exportar STL para Impressora 3D
+          </button>
+          <p class="hint">O arquivo STL pode ser usado em qualquer slicer (Cura, PrusaSlicer, etc.)</p>
+        </section>
+
+        <section class="info-section">
+          <h3>Instruções de impressão</h3>
+          <ul>
+            <li><strong>Slot NFC:</strong> Pause a impressão quando a altura do slot for atingida</li>
+            <li><strong>Inserção:</strong> Coloque o adesivo NFC no slot e continue a impressão</li>
+            <li><strong>Resina:</strong> As bordas elevadas permitem cobertura de resina para proteção</li>
+          </ul>
+        </section>
+      </aside>
+
+      <div class="viewer-container">
+        <div id="canvas-container"></div>
+        <div class="viewer-overlay">
+          <span>Arraste para rotacionar • Scroll para zoom</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="theme.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
